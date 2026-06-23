@@ -152,6 +152,7 @@ app.post('/api/entities/:id/files', authenticate, async (req, res) => {
       fileName,
       mapping,
       excelData,
+      pushedRegistrationNumbers: [],
       createdAt: new Date()
     };
     const result = await collection.insertOne(newFile);
@@ -200,6 +201,27 @@ app.delete('/api/files/:fileId', authenticate, async (req, res) => {
     const result = await collection.deleteOne({ _id: new ObjectId(fileId) });
     if (result.deletedCount === 0) return res.status(404).json({ error: "File not found or unauthorized" });
     res.json({ message: "File deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark a student as pushed
+app.put('/api/files/:fileId/push', authenticate, async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ error: "Database not connected" });
+    const fileId = req.params.fileId;
+    const { regNo } = req.body;
+    if (!regNo) return res.status(400).json({ error: "Registration number required" });
+
+    const collection = db.collection('entity_files');
+    const result = await collection.updateOne(
+      { _id: new ObjectId(fileId) },
+      { $addToSet: { pushedRegistrationNumbers: regNo } }
+    );
+    
+    if (result.matchedCount === 0) return res.status(404).json({ error: "File not found" });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

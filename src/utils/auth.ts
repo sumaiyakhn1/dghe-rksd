@@ -182,3 +182,12 @@ export const deleteUserFile = async (fileId: string) => {
   });
   return res.data;
 };
+
+export const markStudentAsPushed = async (fileId: string, regNo: string) => {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await axios.put(`/api/files/${fileId}/push`, { regNo }, {
+    headers: { 'Authorization': token }
+  });
+  return res.data;
+};

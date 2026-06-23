@@ -57,6 +57,11 @@ body {
   position: relative;
 }
 
+.animate-spin {
+  animation: spin 1s linear infinite;
+  transform-origin: center;
+}
+
 /* Sidebar */
 .sidebar {
   width: 280px;

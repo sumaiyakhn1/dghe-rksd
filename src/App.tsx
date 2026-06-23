@@ -40,6 +40,9 @@ function App() {
   const [isLoadingCourses, setIsLoadingCourses] = useState(false);
   const [isSavingData, setIsSavingData] = useState(false);
 
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [pushedRegistrationNumbers, setPushedRegistrationNumbers] = useState<string[]>([]);
+
   useEffect(() => {
     if (isAuthenticated) {
       if (!selectedEntity) {
@@ -135,8 +138,9 @@ function App() {
   const handleEntitySelect = (entity: Entity) => {
     setSelectedEntity(entity);
     setFileName(null);
-    setExcelData([]);
     setMappings({});
+    setActiveFileId(null);
+    setPushedRegistrationNumbers([]);
     setActiveStep('upload');
   };
 
@@ -151,6 +155,8 @@ function App() {
       setFileName(fileData.fileName);
       setMappings(fileData.mapping);
       setExcelData(fileData.excelData);
+      setActiveFileId(fileId);
+      setPushedRegistrationNumbers(fileData.pushedRegistrationNumbers || []);
 
       setActiveStep('preview');
     } catch (err) {
@@ -163,7 +169,11 @@ function App() {
     if (!selectedEntity || !fileName) return;
     try {
       setIsSavingData(true);
-      await saveUserFile(selectedEntity._id, fileName, mappings, excelData);
+      const savedData = await saveUserFile(selectedEntity._id, fileName || 'Untitled.xlsx', mappings, excelData);
+      setActiveFileId(savedData.fileId);
+      setPushedRegistrationNumbers([]);
+      setIsSavingData(false);
+      alert('Data and Mapping Saved to Workspace!');
       setActiveStep('preview');
     } catch (err) {
       console.error('Failed to save user data:', err);
@@ -384,7 +394,16 @@ function App() {
                       </button>
                       <span style={{ fontSize: '10px', fontWeight: 900, color: 'var(--text-muted)' }}>STAGING_BUFFER_v2</span>
                     </div>
-                    <DataPreview data={excelData} mappings={mappings} valueMappings={selectedEntity?.valueMappings} erpCourseInfo={courseInfo} globalCategory={globalCategory} />
+                    <DataPreview
+                      data={excelData}
+                      mappings={mappings}
+                      valueMappings={selectedEntity?.valueMappings}
+                      erpCourseInfo={courseInfo}
+                      globalCategory={globalCategory}
+                      activeFileId={activeFileId}
+                      pushedRegistrationNumbers={pushedRegistrationNumbers}
+                      onStudentPushed={(regNo) => setPushedRegistrationNumbers(prev => [...prev, regNo])}
+                    />
                   </div>
                 )}
               </div>

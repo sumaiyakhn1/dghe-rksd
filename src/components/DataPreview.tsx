@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Check, Loader2, PlayCircle, Edit3 } from 'lucide-react';
 import { ERP_FIELDS, INITIAL_PAYLOAD_DEFAULTS } from '../constants/erpFields';
 import { formatExcelDate } from '../utils/excelUtils';
-import { addStudent } from '../utils/auth';
+import { addStudent, markStudentAsPushed } from '../utils/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
 
@@ -12,9 +12,12 @@ interface DataPreviewProps {
   valueMappings?: Record<string, Record<string, string>>;
   erpCourseInfo?: { name: string, stream: string } | null;
   globalCategory?: string;
+  activeFileId?: string | null;
+  pushedRegistrationNumbers?: string[];
+  onStudentPushed?: (regNo: string) => void;
 }
 
-export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueMappings, erpCourseInfo, globalCategory }) => {
+export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueMappings, erpCourseInfo, globalCategory, activeFileId, pushedRegistrationNumbers = [], onStudentPushed }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusMap, setStatusMap] = useState<Record<number, 'idle' | 'loading' | 'success' | 'error'>>({});
   const [errorMessages, setErrorMessages] = useState<Record<number, string>>({});
@@ -154,6 +157,15 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
 
       await addStudent(payload);
       setStatusMap(prev => ({ ...prev, [originalIndex]: 'success' }));
+      
+      if (activeFileId && payload.regNo && onStudentPushed) {
+        try {
+          await markStudentAsPushed(activeFileId, payload.regNo);
+          onStudentPushed(payload.regNo);
+        } catch (err) {
+          console.error("Failed to mark student as pushed in DB", err);
+        }
+      }
     } catch (error: any) {
       setStatusMap(prev => ({ ...prev, [originalIndex]: 'error' }));
       setErrorMessages(prev => ({ ...prev, [originalIndex]: error?.response?.data?.message || (typeof error === 'string' ? error : 'API Error') }));
@@ -272,7 +284,8 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
           <tbody>
             <AnimatePresence mode="popLayout">
               {filteredIndices.map(({ student, originalIndex }) => {
-                const status = statusMap[originalIndex] || 'idle';
+                const isPushed = pushedRegistrationNumbers?.includes(student.regNo);
+                const status = statusMap[originalIndex] || (isPushed ? 'success' : 'idle');
                 
                 return (
                   <motion.tr 
@@ -320,7 +333,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
                       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 8px' }}>
                         {status === 'success' ? (
                           <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '6px 12px', borderRadius: '8px', fontSize: '10px', fontWeight: 900 }}>
-                            <Check size={12} style={{ marginRight: '4px' }} /> PUSHED
+                            <Check size={12} style={{ marginRight: '4px' }} /> {isPushed && !statusMap[originalIndex] ? 'ALREADY PUSHED' : 'PUSHED'}
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'end', gap: '4px' }}>
