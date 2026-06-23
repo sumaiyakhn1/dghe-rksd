@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 import { FileUpload } from './components/FileUpload';
 import { DataPreview } from './components/DataPreview';
-import { getAuthToken, logout as authLogout, getCourses, saveUserFile } from './utils/auth';
+import { getAuthToken, logout as authLogout, getCourses, saveUserFile, saveFileConfig } from './utils/auth';
 import type { Entity } from './utils/auth';
 import { ERP_FIELDS } from './constants/erpFields';
 import { autoMapFields } from './utils/excelUtils';
@@ -196,6 +196,11 @@ function App() {
     try {
       setIsSavingData(true);
       const savedData = await saveUserFile(selectedEntity._id, fileName || 'Untitled.xlsx', mappings, excelData);
+      
+      if (savedData.fileId && selectedCourseId && globalCategory) {
+        await saveFileConfig(savedData.fileId, selectedCourseId, globalCategory);
+      }
+
       setActiveFileIds([savedData.fileId]);
       setPushedRegistrationNumbers([]);
       setIsSavingData(false);
