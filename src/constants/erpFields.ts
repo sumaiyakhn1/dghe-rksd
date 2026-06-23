@@ -16,7 +16,7 @@ export const ERP_FIELDS: ERPField[] = [
   { key: 'batch', label: 'Batch/Semester', required: false, autoMapKeywords: ['batch', 'year', 'semester'] },
   { key: 'section', label: 'Section', required: false, autoMapKeywords: ['section'] },
   { key: 'oldNew', label: 'oldNew (AIOC/BC)', required: true, autoMapKeywords: ['old', 'new', 'allocation', 'category', 'reservation'] },
-  { key: 'category', label: 'category (GIA/SFS)', required: false, autoMapKeywords: ['scheme', 'aided', 'sfs'] },
+  { key: 'category', label: 'Category', required: true, autoMapKeywords: ['scheme', 'aided', 'sfs'] },
   { key: 'gender', label: 'Gender', required: true, autoMapKeywords: ['gender', 'sex'] },
   { key: 'phone', label: 'Phone Number', required: true, autoMapKeywords: ['phone', 'mobile', 'contact'] },
   { key: 'doa', label: 'Date of Admission', required: false, autoMapKeywords: ['doa', 'admission'] },

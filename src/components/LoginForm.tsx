@@ -1,24 +1,47 @@
 import React, { useState } from 'react';
-import { Lock, Phone, Loader2, ShieldCheck } from 'lucide-react';
-import { login } from '../utils/auth';
-import { motion } from 'framer-motion';
+import { Lock, Phone, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { sendOtp, verifyOtp } from '../utils/auth';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface LoginFormProps {
   onSuccess: (token: string) => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
-  const [mobile, setMobile] = useState('1234557890');
-  const [password, setPassword] = useState('1234557890');
+  const [step, setStep] = useState<1 | 2>(1);
+  const [mobile, setMobile] = useState('');
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!mobile || mobile.length < 10) {
+      setError('Please enter a valid mobile number');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const token = await login(mobile, password);
+      await sendOtp(mobile);
+      setStep(2);
+    } catch (err: any) {
+      setError(err || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp || otp.length < 4) {
+      setError('Please enter a valid OTP');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const token = await verifyOtp(mobile, otp);
       onSuccess(token);
     } catch (err: any) {
       setError(err || 'Security check failed');
@@ -28,66 +51,125 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white border border-black/5 rounded-[2.5rem] p-12 w-full max-w-sm shadow-[0_20px_40px_-12px_rgba(0,0,0,0.08)]"
-    >
-      <div className="flex flex-col items-center mb-10">
-        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-blue-600/20">
-          <ShieldCheck className="w-8 h-8 text-white" />
-        </div>
-        <h2 className="text-3xl font-black tracking-tight text-zinc-900">Auth</h2>
-        <p className="text-zinc-500 text-sm font-medium mt-1">Personnel Authorization</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Personnel ID</label>
-          <div className="relative group">
-            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
-            <input 
-              type="text" 
-              className="w-full bg-zinc-50 border border-black/5 rounded-2xl py-4 pl-12 pr-4 text-zinc-900 font-bold focus:outline-none focus:border-blue-500 transition-all placeholder:text-zinc-300"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              required
-            />
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="card"
+        style={{ maxWidth: '400px', padding: '40px', display: 'flex', flexDirection: 'column' }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px' }}>
+          <div style={{ width: '64px', height: '64px', backgroundColor: 'var(--accent)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', boxShadow: '0 8px 24px var(--accent-glow)' }}>
+            <ShieldCheck size={32} color="white" />
           </div>
+          <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.5px' }}>Auth</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, marginTop: '4px' }}>
+            {step === 1 ? 'Personnel Authorization' : 'Verify Identity'}
+          </p>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Access Token</label>
-          <div className="relative group">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
-            <input 
-              type="password" 
-              className="w-full bg-zinc-50 border border-black/5 rounded-2xl py-4 pl-12 pr-4 text-zinc-900 font-bold focus:outline-none focus:border-blue-500 transition-all placeholder:text-zinc-300"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-        </div>
+        <AnimatePresence mode="wait">
+          {step === 1 ? (
+            <motion.form
+              key="step1"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              onSubmit={handleSendOtp}
+              style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', paddingLeft: '4px' }}>
+                  Personnel Mobile
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
+                    <Phone size={18} />
+                  </div>
+                  <input
+                    type="text"
+                    className="input-field"
+                    style={{ paddingLeft: '48px', paddingRight: '16px' }}
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value)}
+                    placeholder="Enter mobile number"
+                    required
+                  />
+                </div>
+              </div>
 
-        {error && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-bold animate-in fade-in">
-             {error}
-          </div>
-        )}
+              {error && (
+                <div style={{ padding: '16px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', color: '#ef4444', fontSize: '12px', fontWeight: 700 }}>
+                  {error}
+                </div>
+              )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-200 text-white font-black uppercase tracking-widest text-xs py-5 rounded-2xl transition-all shadow-xl shadow-blue-600/20"
-        >
-          {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary"
+                style={{ width: '100%', marginTop: '8px', display: 'flex', justifyContent: 'center', opacity: loading ? 0.7 : 1 }}
+              >
+                {loading ? <Loader2 size={18} className="animate-spin" /> : 'Send OTP'}
+              </button>
+            </motion.form>
           ) : (
-            'Authorize'
+            <motion.form
+              key="step2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              onSubmit={handleVerifyOtp}
+              style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: '4px' }}>
+                  <label style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)' }}>
+                    One Time Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setStep(1); setError(null); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <ArrowLeft size={12} /> Back
+                  </button>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
+                    <Lock size={18} />
+                  </div>
+                  <input
+                    type="text"
+                    className="input-field"
+                    style={{ paddingLeft: '48px', paddingRight: '16px', letterSpacing: '4px', fontSize: '16px' }}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    placeholder="Enter OTP"
+                    maxLength={6}
+                    required
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div style={{ padding: '16px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', color: '#ef4444', fontSize: '12px', fontWeight: 700 }}>
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary"
+                style={{ width: '100%', marginTop: '8px', display: 'flex', justifyContent: 'center', opacity: loading ? 0.7 : 1 }}
+              >
+                {loading ? <Loader2 size={18} className="animate-spin" /> : 'Verify & Authorize'}
+              </button>
+            </motion.form>
           )}
-        </button>
-      </form>
-    </motion.div>
+        </AnimatePresence>
+      </motion.div>
+    </div>
   );
 };

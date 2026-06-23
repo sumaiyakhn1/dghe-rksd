@@ -9,7 +9,24 @@ export const parseExcelFile = (file: File): Promise<{ headers: string[], data: a
         const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        // Convert to 2D array to inspect rows and find the true header row
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+        
+        if (rawData.length === 0) {
+          resolve({ headers: [], data: [] });
+          return;
+        }
+
+        let headerRowIndex = 0;
+        for (let i = 0; i < Math.min(15, rawData.length); i++) {
+           const rowStr = rawData[i].join(' ').toLowerCase();
+           if (rowStr.includes('registration') || rowStr.includes('course name') || rowStr.includes('student')) {
+              headerRowIndex = i;
+              break;
+           }
+        }
+
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '', range: headerRowIndex });
         
         if (jsonData.length === 0) {
           resolve({ headers: [], data: [] });
@@ -58,7 +75,10 @@ export const formatExcelDate = (value: any): string => {
 
   if (isNaN(date.getTime())) return String(value);
 
-  return date.toISOString();
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}-${m}-${y}`;
 };
 
 export const autoMapFields = (excelHeaders: string[], erpFields: any[]): Record<string, string> => {

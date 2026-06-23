@@ -4,14 +4,17 @@ import { ERP_FIELDS, INITIAL_PAYLOAD_DEFAULTS } from '../constants/erpFields';
 import { formatExcelDate } from '../utils/excelUtils';
 import { addStudent } from '../utils/auth';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as XLSX from 'xlsx';
 
 interface DataPreviewProps {
   data: any[];
   mappings: Record<string, string>;
+  valueMappings?: Record<string, Record<string, string>>;
   erpCourseInfo?: { name: string, stream: string } | null;
+  globalCategory?: string;
 }
 
-export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, erpCourseInfo }) => {
+export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueMappings, erpCourseInfo, globalCategory }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusMap, setStatusMap] = useState<Record<number, 'idle' | 'loading' | 'success' | 'error'>>({});
   const [errorMessages, setErrorMessages] = useState<Record<number, string>>({});
@@ -26,11 +29,25 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, erpCou
       
       // 1. Basic Mapping from Excel for all fields
       ERP_FIELDS.forEach(field => {
-        const excelHeader = mappings[field.key];
-        const rawValue = excelHeader ? rawRow[excelHeader] : '';
+        const mappedHeader = mappings[field.key];
+        let rawValue = '';
+
+        if (mappedHeader) {
+          if (mappedHeader.startsWith('__CUSTOM__:')) {
+            rawValue = mappedHeader.substring(11);
+          } else if (mappedHeader === '__DEFAULT_NA__') {
+            rawValue = 'NA';
+          } else if (mappedHeader !== 'ignore') {
+            rawValue = rawRow[mappedHeader] !== undefined && rawRow[mappedHeader] !== null ? String(rawRow[mappedHeader]).trim() : '';
+            
+            // Check if there is a configured value mapping for this specific rawValue
+            if (valueMappings && valueMappings[field.key] && valueMappings[field.key][rawValue]) {
+              rawValue = valueMappings[field.key][rawValue];
+            }
+          }
+        }
         
-        // Explicitly convert to string and trim
-        student[field.key] = rawValue !== undefined && rawValue !== null ? String(rawValue).trim() : '';
+        student[field.key] = rawValue;
         
         // Special cleanup for numeric phone/regNo strings that might have ".0" from Excel
         if (['phone', 'regNo'].includes(field.key) && student[field.key].endsWith('.0')) {
@@ -42,18 +59,26 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, erpCou
       
       // Gender: normalize to full words if possible
       // Gender: robust normalization to "Male" or "Female"
+      let isFemale = false;
       if (student.gender) {
         const v = String(student.gender).toUpperCase().trim();
-        if (v.startsWith('F')) student.gender = 'Female';
-        else if (v.startsWith('M')) student.gender = 'Male';
+        if (v.startsWith('F')) {
+          student.gender = 'Female';
+          isFemale = true;
+        } else if (v.startsWith('M')) {
+          student.gender = 'Male';
+        }
       } else {
         student.gender = 'Male'; // Basic fallback if totally missing
       }
 
       // DOB/DOA Formatting
       if (student.dob) student.dob = formatExcelDate(student.dob);
-      if (student.doa) student.doa = formatExcelDate(student.doa);
-      else student.doa = new Date().toISOString();
+      if (student.doa) {
+        student.doa = formatExcelDate(student.doa);
+      } else {
+        student.doa = `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()}`;
+      }
 
       // 3. New Business Rules & Automated Logic
       
@@ -64,14 +89,13 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, erpCou
       if (!student.batch) student.batch = 'Sem 1';
       if (!student.section) student.section = 'A';
 
-      // C. Category (Scheme) Logic: Aggressive search for "AIDED" in the row
-      const searchStr = JSON.stringify(rawRow).toUpperCase();
-      const isFemale = String(student.gender || '').toLowerCase().includes('female');
-      const isAided = searchStr.includes('AIDED'); 
-
-      if (isAided) {
+      // C. Category (Scheme) Logic based on globalCategory
+      if (globalCategory === 'GIA') {
         student.category = isFemale ? 'GIA Girls' : 'GIA Boys';
+      } else if (globalCategory === 'SFS') {
+        student.category = isFemale ? 'SFS Girls' : 'SFS Boys';
       } else {
+        // Fallback just in case
         student.category = isFemale ? 'SFS Girls' : 'SFS Boys';
       }
       
@@ -113,6 +137,21 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, erpCou
     
     try {
       const payload = { ...INITIAL_PAYLOAD_DEFAULTS, ...student };
+      
+      // The ERP backend (Mongoose) requires Date fields in YYYY-MM-DD (ISO) format.
+      // Convert our UI DD-MM-YYYY format back to YYYY-MM-DD for the API payload.
+      const convertToISO = (dateStr: string) => {
+        if (!dateStr) return dateStr;
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        return dateStr;
+      };
+
+      if (payload.dob) payload.dob = convertToISO(payload.dob);
+      if (payload.doa) payload.doa = convertToISO(payload.doa);
+
       await addStudent(payload);
       setStatusMap(prev => ({ ...prev, [originalIndex]: 'success' }));
     } catch (error: any) {
@@ -121,10 +160,51 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, erpCou
     }
   };
 
+
+// ... (Inside DataPreview component)
+  const handleDownloadExcel = () => {
+    const exportData = workingData.map(student => {
+      const row: any = {};
+      ERP_FIELDS.forEach(field => {
+        row[field.key] = student[field.key] || '';
+      });
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Mapped Data");
+    XLSX.writeFile(workbook, "Mapped_Students.xlsx");
+  };
+
+  const handleDownloadApplicationData = () => {
+    const today = `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()}`;
+    const exportData = workingData.map(student => {
+      const row: any = {};
+      row['applicationNumber'] = student['regNo'] || '';
+      row['date'] = today;
+      row['currentStage'] = '';
+      row['userMobile'] = '';
+      row['userName'] = '';
+      
+      const fieldsToKeep = ['course', 'stream', 'batch', 'section', 'oldNew', 'category', 'name', 'dob', 'gender', 'phone', 'fatherName', 'motherName'];
+      fieldsToKeep.forEach(key => {
+        row[key] = student[key] || '';
+      });
+
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Application Data");
+    XLSX.writeFile(workbook, "Application_Data.xlsx");
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '24px', overflow: 'hidden' }}>
       {/* Search Header */}
-      <div style={{ padding: '32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)' }}>
+      <div style={{ padding: '32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', flexWrap: 'wrap', gap: '16px' }}>
         <div>
            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)', marginBottom: '4px' }}>
               <Edit3 size={14} />
@@ -133,16 +213,35 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, erpCou
            <h3 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Active Buffer Staging</h3>
         </div>
         
-        <div style={{ position: 'relative', width: '300px' }}>
-          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
-          <input 
-            type="text" 
-            placeholder="Search records..."
-            className="input-field"
-            style={{ paddingLeft: '44px' }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button 
+            onClick={handleDownloadApplicationData} 
+            className="btn-secondary" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', fontSize: '13px', fontWeight: 700 }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            Export App Data
+          </button>
+          <button 
+            onClick={handleDownloadExcel} 
+            className="btn-secondary" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', fontSize: '13px', fontWeight: 700 }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export Excel
+          </button>
+          
+          <div style={{ position: 'relative', width: '300px' }}>
+            <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
+            <input 
+              type="text" 
+              placeholder="Search records..."
+              className="input-field"
+              style={{ paddingLeft: '44px' }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
