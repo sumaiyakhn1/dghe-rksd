@@ -67,7 +67,7 @@ export const parseExcelFile = (file: File): Promise<{ headers: string[], data: a
 export const formatExcelDate = (value: any): string => {
   if (!value) return '';
   
-  let date: Date;
+  let date: Date | undefined;
   
   if (value instanceof Date) {
     date = value;

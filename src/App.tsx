@@ -15,7 +15,6 @@ import {
   Sparkles,
   User,
   FileSpreadsheet,
-  Layers,
   CheckCircle2,
   ShieldCheck,
   Loader2,
