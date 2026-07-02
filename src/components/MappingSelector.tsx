@@ -10,9 +10,18 @@ interface MappingSelectorProps {
 }
 
 export const MappingSelector: React.FC<MappingSelectorProps> = ({ excelHeaders, mappings, onMappingChange }) => {
+  const isOldNewConfigured = mappings['oldNew'] && mappings['oldNew'] !== 'ignore';
+  const isCategoryConfigured = mappings['category'] && mappings['category'] !== 'ignore';
+
+  const fieldsToRender = ERP_FIELDS.filter(field => {
+    if (field.key === 'oldNew' && isOldNewConfigured) return false;
+    if (field.key === 'category' && isCategoryConfigured) return false;
+    return true;
+  });
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-      {ERP_FIELDS.map((field, idx) => {
+      {fieldsToRender.map((field, idx) => {
         const isMapped = !!mappings[field.key];
         
         // Define which fields have automatic defaults to show in UI

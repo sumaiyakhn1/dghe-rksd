@@ -108,10 +108,10 @@ function App() {
     setActiveStep('map');
 
     const savedMapping = selectedEntity?.mapping || {};
+    const autoMappings = autoMapFields(newHeaders, ERP_FIELDS);
     if (Object.keys(savedMapping).length > 0) {
-      setMappings(savedMapping);
+      setMappings({ ...autoMappings, ...savedMapping });
     } else {
-      const autoMappings = autoMapFields(newHeaders, ERP_FIELDS);
       setMappings(autoMappings);
     }
   }, [selectedEntity]);
@@ -226,9 +226,6 @@ function App() {
   const steps = [
     { id: 'auth', label: 'Identity', icon: ShieldCheck },
     { id: 'entities', label: 'Select Entity', icon: LayoutGrid },
-    { id: 'upload', label: 'Source', icon: FileSpreadsheet },
-    { id: 'map', label: 'Mapping', icon: Layers },
-    { id: 'preview', label: 'Gateway', icon: CheckCircle2 },
   ];
 
   const handleStepClick = (stepId: Step, _idx: number) => {
@@ -428,8 +425,8 @@ function App() {
                 {activeStep === 'preview' && (
                   <div style={{ background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-lg)' }}>
                     <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <button onClick={() => setActiveStep('map')} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <ArrowRight size={16} style={{ transform: 'rotate(180deg)' }} /> BACK TO MAPPING
+                      <button onClick={() => setActiveStep('entities')} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ArrowRight size={16} style={{ transform: 'rotate(180deg)' }} /> BACK TO ENTITY EXCEL
                       </button>
                       <span style={{ fontSize: '10px', fontWeight: 900, color: 'var(--text-muted)' }}>STAGING_BUFFER_v2</span>
                     </div>

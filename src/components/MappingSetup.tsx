@@ -19,6 +19,7 @@ const ERP_FIELDS = [
   { key: 'batch', label: 'Batch', autoTarget: true, defaultOption: 'Sem 1', autoMapKeywords: ['batch', 'year', 'semester'] },
   { key: 'section', label: 'Section', autoTarget: true, defaultOption: 'A', autoMapKeywords: ['section'] },
   { key: 'oldNew', label: 'Old/New', autoTarget: false, autoMapKeywords: ['seat allocation', 'allocation', 'old', 'new'] },
+  { key: 'category', label: 'Category', autoTarget: false, autoMapKeywords: ['scheme', 'aided', 'sfs', 'category'] },
   { key: 'gender', label: 'Gender', autoTarget: false, autoMapKeywords: ['gender', 'sex'] },
   { key: 'phone', label: 'Phone', autoTarget: false, autoMapKeywords: ['mobile', 'phone', 'contact'] },
   { key: 'doa', label: 'Date of Admission', autoTarget: true, defaultOption: `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()}`, autoMapKeywords: ['doa', 'admission'] }
@@ -64,6 +65,11 @@ export const MappingSetup: React.FC<MappingSetupProps> = ({ entity, onBack, onMa
   const [, setError] = useState<string | null>(null);
   const [activeValueMapField, setActiveValueMapField] = useState<string | null>(null);
 
+  const [matchingFieldMode, setMatchingFieldMode] = useState<'oldNew' | 'category'>(() => {
+    if (entity.mapping?.category && entity.mapping.category !== 'ignore') return 'category';
+    return 'oldNew';
+  });
+
   const [feeMasterOptions, setFeeMasterOptions] = useState<{ category: string[], oldNew: string[] } | null>(null);
 
   React.useEffect(() => {
@@ -94,7 +100,15 @@ export const MappingSetup: React.FC<MappingSetupProps> = ({ entity, onBack, onMa
     try {
       setSaving(true);
       setError(null);
-      const updatedEntity = await saveEntityMapping(entity._id, mapping, sampleHeaders, valueMappings);
+      
+      const finalMapping = { ...mapping };
+      if (matchingFieldMode === 'oldNew') {
+        finalMapping['category'] = 'ignore';
+      } else {
+        finalMapping['oldNew'] = 'ignore';
+      }
+      
+      const updatedEntity = await saveEntityMapping(entity._id, finalMapping, sampleHeaders, valueMappings);
       onMappingSaved(updatedEntity);
     } catch (err: any) {
       console.error(err);
@@ -143,8 +157,14 @@ export const MappingSetup: React.FC<MappingSetupProps> = ({ entity, onBack, onMa
             </div>
           </div>
 
+          {/* Matching field selector integrated into card UI below */}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
-            {ERP_FIELDS.map(field => {
+            {ERP_FIELDS.filter(f => {
+              if (f.key === 'oldNew' && matchingFieldMode !== 'oldNew') return false;
+              if (f.key === 'category' && matchingFieldMode !== 'category') return false;
+              return true;
+            }).map(field => {
               const mappedValue = mapping[field.key] || '';
               const isCustom = mappedValue.startsWith('__CUSTOM__:');
               const customValue = isCustom ? mappedValue.substring(11) : '';
@@ -170,7 +190,21 @@ export const MappingSetup: React.FC<MappingSetupProps> = ({ entity, onBack, onMa
                     {isMapped && <CheckCircle2 size={16} color="#2563eb" />}
                   </div>
 
-                  <h4 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>{field.label}</h4>
+                  {['oldNew', 'category'].includes(field.key) ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <select 
+                        className="input-field" 
+                        style={{ margin: 0, padding: '4px 8px', fontSize: '16px', fontWeight: 800, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', marginLeft: '-8px' }}
+                        value={matchingFieldMode}
+                        onChange={e => setMatchingFieldMode(e.target.value as 'oldNew' | 'category')}
+                      >
+                        <option value="oldNew">Old/New</option>
+                        <option value="category">Category</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <h4 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>{field.label}</h4>
+                  )}
 
                   <select 
                     className="input-field"
@@ -196,13 +230,7 @@ export const MappingSetup: React.FC<MappingSetupProps> = ({ entity, onBack, onMa
 
                   {['oldNew', 'category'].includes(field.key) && !isCustom && mappedValue && mappedValue !== 'ignore' && (
                     <button
-                      onClick={() => {
-                        if (sampleData.length === 0 && field.key !== 'oldNew') {
-                          alert('Please upload a sample Excel file above to configure value mappings. The system needs the data rows to extract unique values.');
-                          return;
-                        }
-                        setActiveValueMapField(field.key);
-                      }}
+                      onClick={() => setActiveValueMapField(field.key)}
                       className="btn-secondary"
                       style={{ marginTop: '8px', padding: '8px', fontSize: '12px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}
                     >
@@ -275,7 +303,7 @@ const ValueMappingModal = ({ fieldKey, mappedColumn, sampleData, feeMasterOption
   
   // Extract unique values for the selected column
   let uniqueValues = Array.from(new Set(sampleData.map((row: any) => row[mappedColumn] !== undefined ? String(row[mappedColumn]).trim() : '').filter(Boolean)));
-  if (fieldKey === 'oldNew') {
+  if (fieldKey === 'oldNew' || fieldKey === 'category') {
     uniqueValues = ['AIOC', 'EWS-AIOC', 'HOGC', 'EWS-HOGC', 'BCA', 'BCB', 'OSC', 'DSC', 'DA'];
   }
   const options = fieldKey === 'oldNew' ? feeMasterOptions?.oldNew : feeMasterOptions?.category;

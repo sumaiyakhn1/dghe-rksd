@@ -34,6 +34,26 @@ export const parseExcelFile = (file: File): Promise<{ headers: string[], data: a
         }
 
         const headers = Object.keys(jsonData[0] as object);
+
+        const courseNameHeader = headers.find(h => h.toLowerCase().includes('course name') || h.toLowerCase() === 'coursename');
+        
+        if (courseNameHeader) {
+          if (!headers.includes('subjectCombination')) {
+            headers.push('subjectCombination');
+          }
+          jsonData.forEach((row: any) => {
+            const courseName = row[courseNameHeader];
+            if (typeof courseName === 'string') {
+              const matches = [...courseName.matchAll(/\(([^()]+)\)/g)];
+              if (matches.length > 0) {
+                row['subjectCombination'] = matches[matches.length - 1][1].trim();
+              } else {
+                row['subjectCombination'] = '';
+              }
+            }
+          });
+        }
+
         resolve({ headers, data: jsonData });
       } catch (error) {
         reject(error);
@@ -56,20 +76,25 @@ export const formatExcelDate = (value: any): string => {
     date = new Date(d.y, d.m - 1, d.d);
   } else {
     const dateStr = String(value).trim();
-    // Try standard parsing first
-    date = new Date(dateStr);
     
-    // If invalid, try manual parsing for DD-MM-YYYY or DD/MM/YYYY
-    if (isNaN(date.getTime())) {
-      const parts = dateStr.split(/[-/]/);
-      if (parts.length === 3) {
-        const d = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
-        const y = parseInt(parts[2], 10);
-        if (y > 1000) { // Ensure it's a full year
-          date = new Date(y, m - 1, d);
-        }
+    // First try manual parsing for DD-MM-YYYY or DD/MM/YYYY
+    const parts = dateStr.split(/[-/]/);
+    if (parts.length === 3) {
+      const d = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      let y = parseInt(parts[2], 10);
+      
+      // Handle 2-digit years if necessary, though typical is 4
+      if (y < 100) y += 2000;
+      
+      if (y > 1000 && m >= 1 && m <= 12 && d >= 1 && d <= 31) { 
+        date = new Date(y, m - 1, d);
       }
+    }
+    
+    // If manual parsing didn't result in a valid date, fallback to standard parsing
+    if (!date || isNaN(date.getTime())) {
+      date = new Date(dateStr);
     }
   }
 

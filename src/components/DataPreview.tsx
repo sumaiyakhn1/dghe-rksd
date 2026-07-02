@@ -27,6 +27,8 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
 
   // Initialize workingData with mapped values and user business rules
   useEffect(() => {
+    const regNoCounts: Record<string, number> = {};
+
     const initialized = data.map((rawRow) => {
       const student: any = {};
 
@@ -57,8 +59,6 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
           student[field.key] = student[field.key].replace('.0', '');
         }
       });
-
-      // 2. Data Normalization & Specific Rules
 
       // Gender: normalize to full words if possible
       // Gender: robust normalization to "Male" or "Female"
@@ -94,13 +94,25 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
 
       // Use row-specific globalCategory if available (from merged files)
       const rowCategory = rawRow._globalCategory || globalCategory;
+      let computedCategory = '';
 
       if (rowCategory === 'GIA') {
-        student.category = isFemale ? 'GIA Girls' : 'GIA Boys';
+        computedCategory = isFemale ? 'GIA Girls' : 'GIA Boys';
       } else if (rowCategory === 'SFS') {
-        student.category = isFemale ? 'SFS Girls' : 'SFS Boys';
+        computedCategory = isFemale ? 'SFS Girls' : 'SFS Boys';
       } else {
-        student.category = isFemale ? 'SFS Girls' : 'SFS Boys'; // Fallback
+        computedCategory = isFemale ? 'SFS Girls' : 'SFS Boys'; // Fallback
+      }
+
+      const isCategoryConfigured = mappings['category'] && mappings['category'] !== 'ignore';
+      if (isCategoryConfigured) {
+        // If Category is configured from Excel, it keeps the Excel value (like SC).
+        // The computed value (GIA Girls) goes to oldNew.
+        student.oldNew = computedCategory;
+      } else {
+        // If Old/New is configured from Excel, it keeps the Excel value (like SC).
+        // The computed value (GIA Girls) goes to category.
+        student.category = computedCategory;
       }
 
       // Preserve hidden meta-fields for ERP push
@@ -114,6 +126,24 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
       } else {
         if (!student.course) student.course = 'Bachelor of Arts';
         student.stream = student.course;
+      }
+
+      // E. Registration Number Duplicacy Handling
+      if (student.regNo) {
+        const baseRegNo = String(student.regNo).trim();
+        student._originalRegNo = baseRegNo;
+        if (baseRegNo) {
+          if (regNoCounts[baseRegNo] === undefined) {
+            regNoCounts[baseRegNo] = 0;
+            student.regNo = baseRegNo;
+          } else {
+            regNoCounts[baseRegNo]++;
+            const count = regNoCounts[baseRegNo];
+            // count 1 -> 'A', count 2 -> 'B', etc.
+            const suffix = String.fromCharCode(64 + count);
+            student.regNo = `${baseRegNo}${suffix}`;
+          }
+        }
       }
 
       return student;
@@ -135,7 +165,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
   const duplicateRegNos = React.useMemo(() => {
     const counts: Record<string, number> = {};
     workingData.forEach(student => {
-      const regNo = student.regNo;
+      const regNo = student._originalRegNo || student.regNo;
       if (regNo) {
         counts[regNo] = (counts[regNo] || 0) + 1;
       }
@@ -217,7 +247,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
       const studentIndex = R - 1; // offset by 1 for header
       if (studentIndex >= 0 && studentIndex < workingData.length) {
         const student = workingData[studentIndex];
-        const isDuplicate = student.regNo && duplicateRegNos.includes(student.regNo);
+        const isDuplicate = student.regNo && duplicateRegNos.includes(student._originalRegNo || student.regNo);
         
         if (isDuplicate) {
           for (let C = range.s.c; C <= range.e.c; ++C) {
@@ -368,7 +398,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
               {filteredIndices.map(({ student, originalIndex }) => {
                 const isPushed = pushedRegistrationNumbers?.includes(student.regNo);
                 const status = statusMap[originalIndex] || (isPushed ? 'success' : 'idle');
-                const isDuplicate = student.regNo && duplicateRegNos.includes(student.regNo);
+                const isDuplicate = student.regNo && duplicateRegNos.includes(student._originalRegNo || student.regNo);
 
                 return (
                   <motion.tr
