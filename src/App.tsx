@@ -53,31 +53,36 @@ function App() {
         } else {
           if (activeStep === 'auth' || activeStep === 'entities') setActiveStep('upload');
         }
-
-        // Fetch ERP Courses dynamically based on selected entity
-        const fetchCourses = async () => {
-          try {
-            setIsLoadingCourses(true);
-            const response = await getCourses(selectedEntity.entityId, selectedEntity.session);
-
-            let courses = [];
-            if (Array.isArray(response)) courses = response;
-            else if (response && Array.isArray(response.data)) courses = response.data;
-            else if (response && response.data && Array.isArray(response.data.data)) courses = response.data.data;
-
-            setErpCourses(courses);
-          } catch (error) {
-            console.error("Error fetching courses:", error);
-          } finally {
-            setIsLoadingCourses(false);
-          }
-        };
-        fetchCourses();
       }
     } else {
       setActiveStep('auth');
     }
   }, [isAuthenticated, selectedEntity, excelData.length]);
+
+  useEffect(() => {
+    if (isAuthenticated && selectedEntity) {
+      const fetchCourses = async () => {
+        try {
+          setIsLoadingCourses(true);
+          const response = await getCourses(selectedEntity.entityId, selectedEntity.session);
+
+          let courses = [];
+          if (Array.isArray(response)) courses = response;
+          else if (response && Array.isArray(response.data)) courses = response.data;
+          else if (response && response.data && Array.isArray(response.data.data)) courses = response.data.data;
+
+          setErpCourses(courses);
+        } catch (error) {
+          console.error("Error fetching courses:", error);
+        } finally {
+          setIsLoadingCourses(false);
+        }
+      };
+      fetchCourses();
+    } else {
+      setErpCourses([]);
+    }
+  }, [isAuthenticated, selectedEntity]);
 
   const handleCourseSelect = (courseId: string) => {
     setSelectedCourseId(courseId);
