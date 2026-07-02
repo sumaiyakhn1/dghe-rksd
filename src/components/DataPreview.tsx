@@ -120,9 +120,10 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
       if (rawRow._sourceFileId) student._sourceFileId = rawRow._sourceFileId;
 
       // D. Final Override: Standardization for ERP Target
-      if (erpCourseInfo) {
-        student.course = erpCourseInfo.name;
-        student.stream = erpCourseInfo.stream;
+      const rowCourseInfo = rawRow._courseInfo || erpCourseInfo;
+      if (rowCourseInfo) {
+        student.course = rowCourseInfo.name;
+        student.stream = rowCourseInfo.stream;
       } else {
         if (!student.course) student.course = 'Bachelor of Arts';
         student.stream = student.course;

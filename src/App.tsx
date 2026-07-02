@@ -42,6 +42,7 @@ function App() {
   const [activeFileIds, setActiveFileIds] = useState<string[]>([]);
   const [pushedRegistrationNumbers, setPushedRegistrationNumbers] = useState<string[]>([]);
 
+  // eslint-disable-next-line
   useEffect(() => {
     if (isAuthenticated) {
       if (!selectedEntity) {
@@ -101,6 +102,7 @@ function App() {
     handleReset();
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleDataLoaded = useCallback((newHeaders: string[], newData: any[], name: string) => {
     setExcelData(newData);
     setFileName(name);
@@ -136,6 +138,7 @@ function App() {
 
   const handleEntitySelect = (entity: Entity) => {
     setSelectedEntity(entity);
+    setExcelData([]);
     setFileName(null);
     setMappings({});
     setActiveFileIds([]);
@@ -143,11 +146,13 @@ function App() {
     setActiveStep('upload');
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleLoadSavedFiles = async (entity: Entity, fileIds: string[], fileConfigs: Record<string, { courseInfo: any, globalCategory: string }>) => {
     try {
       setSelectedEntity(entity);
       const { getFileData } = await import('./utils/auth');
       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let allExcelData: any[] = [];
       let allPushedRegNos: string[] = [];
       let firstMapping = {};
@@ -164,6 +169,7 @@ function App() {
         }
 
         // Attach config to each row
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rowsWithConfig = fileData.excelData.map((row: any) => ({
           ...row,
           _courseInfo: config?.courseInfo || null,
@@ -182,6 +188,11 @@ function App() {
       setExcelData(allExcelData);
       setActiveFileIds(fileIds);
       setPushedRegistrationNumbers(allPushedRegNos);
+      
+      // Clear global states so that DataPreview uses the row-level configs
+      setSelectedCourseId('');
+      setCourseInfo(null);
+      setGlobalCategory('');
 
       setActiveStep('preview');
     } catch (err) {
@@ -227,6 +238,7 @@ function App() {
     { id: 'entities', label: 'Select Entity', icon: LayoutGrid },
   ];
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleStepClick = (stepId: Step, _idx: number) => {
     if (!isAuthenticated && stepId !== 'auth') return;
     if (stepId === 'auth') return; // Cannot go back to auth if logged in
@@ -335,7 +347,7 @@ function App() {
                       <h1 style={{ fontSize: '42px', fontWeight: 900, marginBottom: '8px' }}>Secure Ingestion</h1>
                       <p style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Upload Excel buffer for {selectedEntity?.name || 'ERP'} synchronization.</p>
                     </div>
-                    <FileUpload onDataLoaded={handleDataLoaded} onReset={handleReset} fileName={fileName} />
+                    <FileUpload onDataLoaded={handleDataLoaded} onReset={handleReset} onClose={handleBackToWorkspace} fileName={fileName} />
                   </div>
                 )}
 
@@ -427,7 +439,6 @@ function App() {
                       <button onClick={() => setActiveStep('entities')} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <ArrowRight size={16} style={{ transform: 'rotate(180deg)' }} /> BACK TO ENTITY EXCEL
                       </button>
-                      <span style={{ fontSize: '10px', fontWeight: 900, color: 'var(--text-muted)' }}>STAGING_BUFFER_v2</span>
                     </div>
                     <DataPreview
                       data={excelData}
