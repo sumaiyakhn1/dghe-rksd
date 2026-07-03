@@ -284,7 +284,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
       row['userMobile'] = '';
       row['userName'] = '';
 
-      const fieldsToKeep = ['course', 'stream', 'batch', 'section', 'oldNew', 'category', 'name', 'dob', 'gender', 'phone', 'fatherName', 'motherName'];
+      const fieldsToKeep = ['course', 'stream', 'batch', 'section', 'oldNew', 'category', 'name', 'dob', 'gender', 'phone', 'fatherName', 'motherName', 'subjectCombination', 'state', 'nationality', 'country', 'socialCategory', 'religion'];
       fieldsToKeep.forEach(key => {
         row[key] = student[key] || '';
       });

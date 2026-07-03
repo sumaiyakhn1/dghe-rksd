@@ -41,7 +41,24 @@ export const parseExcelFile = (file: File): Promise<{ headers: string[], data: a
           if (!headers.includes('subjectCombination')) {
             headers.push('subjectCombination');
           }
-          jsonData.forEach((row: any) => {
+        }
+
+        const syntheticFields = [
+          { key: 'state', value: 'Haryana' },
+          { key: 'nationality', value: 'Indian' },
+          { key: 'country', value: 'India' },
+          { key: 'socialCategory', value: 'General' },
+          { key: 'religion', value: 'Hindu' }
+        ];
+
+        syntheticFields.forEach(field => {
+          if (!headers.includes(field.key)) {
+            headers.push(field.key);
+          }
+        });
+
+        jsonData.forEach((row: any) => {
+          if (courseNameHeader) {
             const courseName = row[courseNameHeader];
             if (typeof courseName === 'string') {
               const matches = [...courseName.matchAll(/\(([^()]+)\)/g)];
@@ -51,8 +68,11 @@ export const parseExcelFile = (file: File): Promise<{ headers: string[], data: a
                 row['subjectCombination'] = '';
               }
             }
+          }
+          syntheticFields.forEach(field => {
+            row[field.key] = field.value;
           });
-        }
+        });
 
         resolve({ headers, data: jsonData });
       } catch (error) {

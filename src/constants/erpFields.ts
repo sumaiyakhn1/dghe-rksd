@@ -21,6 +21,11 @@ export const ERP_FIELDS: ERPField[] = [
   { key: 'phone', label: 'Phone Number', required: true, autoMapKeywords: ['phone', 'mobile', 'contact'] },
   { key: 'doa', label: 'Date of Admission', required: false, autoMapKeywords: ['doa', 'admission'] },
   { key: 'subjectCombination', label: 'Subject Combination', required: false, autoMapKeywords: ['subjectcombination'] },
+  { key: 'state', label: 'State', required: false, autoMapKeywords: ['state'] },
+  { key: 'nationality', label: 'Nationality', required: false, autoMapKeywords: ['nationality'] },
+  { key: 'country', label: 'Country', required: false, autoMapKeywords: ['country'] },
+  { key: 'socialCategory', label: 'Social Category', required: false, autoMapKeywords: ['socialcategory', 'social'] },
+  { key: 'religion', label: 'Religion', required: false, autoMapKeywords: ['religion'] },
 ];
 
 export const INITIAL_PAYLOAD_DEFAULTS = {
