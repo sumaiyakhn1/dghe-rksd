@@ -454,6 +454,8 @@ function App() {
                       activeFileIds={activeFileIds}
                       pushedRegistrationNumbers={pushedRegistrationNumbers}
                       onStudentPushed={(regNo) => setPushedRegistrationNumbers(prev => [...prev, regNo])}
+                      entityId={selectedEntity?.entityId}
+                      session={selectedEntity?.session}
                     />
                   </div>
                 )}

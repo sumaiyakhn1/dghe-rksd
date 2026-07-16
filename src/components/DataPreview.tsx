@@ -15,12 +15,15 @@ interface DataPreviewProps {
   activeFileIds?: string[];
   pushedRegistrationNumbers?: string[];
   onStudentPushed?: (regNo: string) => void;
+  entityId?: string;
+  session?: string;
 }
 
-export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueMappings, erpCourseInfo, globalCategory, activeFileIds = [], pushedRegistrationNumbers = [], onStudentPushed }) => {
+export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueMappings, erpCourseInfo, globalCategory, activeFileIds = [], pushedRegistrationNumbers = [], onStudentPushed, entityId, session }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusMap, setStatusMap] = useState<Record<number, 'idle' | 'loading' | 'success' | 'error'>>({});
   const [errorMessages, setErrorMessages] = useState<Record<number, string>>({});
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
 
   // workingData stores the ACTUAL VALUES for each student, not just the excel row
   const [workingData, setWorkingData] = useState<any[]>([]);
@@ -187,10 +190,25 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
     setStatusMap(prev => ({ ...prev, [originalIndex]: 'loading' }));
 
     try {
-      const payloadCourseName = student._courseInfo ? student._courseInfo.name : (erpCourseInfo ? erpCourseInfo.name : '');
-      const payloadStream = student._courseInfo ? student._courseInfo.stream : (erpCourseInfo ? erpCourseInfo.stream : '');
+      let payloadCourseName = student._courseInfo ? student._courseInfo.name : (erpCourseInfo ? erpCourseInfo.name : '');
+      let payloadStream = student._courseInfo ? student._courseInfo.stream : (erpCourseInfo ? erpCourseInfo.stream : '');
       
-      const payload = { ...INITIAL_PAYLOAD_DEFAULTS, ...student, course: payloadCourseName, stream: payloadStream };
+      payloadCourseName = Array.isArray(payloadCourseName) ? payloadCourseName[0] : payloadCourseName;
+      payloadStream = Array.isArray(payloadStream) ? payloadStream[0] : payloadStream;
+      
+      const payload = { 
+        ...INITIAL_PAYLOAD_DEFAULTS, 
+        ...student, 
+        course: payloadCourseName, 
+        stream: payloadStream,
+        ...(entityId && { entity: entityId }),
+        ...(session && { session })
+      };
+      
+      // Remove any columns that the user has hidden
+      hiddenColumns.forEach(col => {
+        delete payload[col];
+      });
       
       // Remove meta-fields before showing to user
       const sourceFileId = student._sourceFileId;
@@ -234,7 +252,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
   const handleDownloadExcel = () => {
     const exportData = workingData.map(student => {
       const row: any = {};
-      ERP_FIELDS.forEach(field => {
+      ERP_FIELDS.filter(f => !hiddenColumns.includes(f.key)).forEach(field => {
         row[field.key] = student[field.key] || '';
       });
       return row;
@@ -284,7 +302,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
       row['userMobile'] = '';
       row['userName'] = '';
 
-      const fieldsToKeep = ['course', 'stream', 'batch', 'section', 'oldNew', 'category', 'name', 'dob', 'gender', 'phone', 'fatherName', 'motherName', 'subjectCombination', 'state', 'nationality', 'country', 'socialCategory', 'religion'];
+      const fieldsToKeep = ['course', 'stream', 'batch', 'section', 'oldNew', 'category', 'name', 'dob', 'gender', 'phone', 'fatherName', 'motherName', 'subjectCombination', 'state', 'nationality', 'country', 'socialCategory', 'religion'].filter(f => !hiddenColumns.includes(f));
       fieldsToKeep.forEach(key => {
         row[key] = student[key] || '';
       });
@@ -339,6 +357,16 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {hiddenColumns.length > 0 && (
+            <button
+              onClick={() => setHiddenColumns([])}
+              className="btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+              Restore Columns ({hiddenColumns.length})
+            </button>
+          )}
           <button
             onClick={handleDownloadApplicationData}
             className="btn-secondary"
@@ -376,11 +404,18 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
           <thead>
             <tr>
               <th style={{ textAlign: 'center', width: '60px' }}>#</th>
-              {ERP_FIELDS.map(field => (
+              {ERP_FIELDS.filter(f => !hiddenColumns.includes(f.key)).map(field => (
                 <th key={field.key} style={{ whiteSpace: 'nowrap' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span>{field.label}</span>
-                    <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>{field.key}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span>{field.label}</span>
+                      <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>{field.key}</span>
+                    </div>
+                    <button 
+                      onClick={() => setHiddenColumns(prev => [...prev, field.key])}
+                      title="Hide column"
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '14px', padding: '0 4px', fontWeight: 'bold' }}
+                    >×</button>
                   </div>
                 </th>
               ))}
@@ -412,7 +447,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
                     }}
                   >
                     <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{originalIndex + 1}</td>
-                    {ERP_FIELDS.map(field => (
+                    {ERP_FIELDS.filter(f => !hiddenColumns.includes(f.key)).map(field => (
                       <td key={field.key} style={{ padding: '4px', minWidth: '120px', position: 'relative' }}>
                         <input
                           type="text"

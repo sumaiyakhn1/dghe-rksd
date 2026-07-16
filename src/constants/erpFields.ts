@@ -31,7 +31,7 @@ export const ERP_FIELDS: ERPField[] = [
 export const INITIAL_PAYLOAD_DEFAULTS = {
   section: "A",
   branchId: "Morning",
-  session: "2025-26 Odd",
+  session: "2026-27 Odd",
   entity: "6487ec9e91f7297664a62ffc",
   qualifications: [],
   role: [],
