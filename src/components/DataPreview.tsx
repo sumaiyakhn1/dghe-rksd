@@ -17,13 +17,20 @@ interface DataPreviewProps {
   onStudentPushed?: (regNo: string) => void;
   entityId?: string;
   session?: string;
+  initialSearchTerm?: string;
 }
 
-export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueMappings, erpCourseInfo, globalCategory, activeFileIds = [], pushedRegistrationNumbers = [], onStudentPushed, entityId, session }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueMappings, erpCourseInfo, globalCategory, activeFileIds = [], pushedRegistrationNumbers = [], onStudentPushed, entityId, session, initialSearchTerm }) => {
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm || '');
   const [statusMap, setStatusMap] = useState<Record<number, 'idle' | 'loading' | 'success' | 'error'>>({});
   const [errorMessages, setErrorMessages] = useState<Record<number, string>>({});
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (initialSearchTerm) {
+      setSearchTerm(initialSearchTerm);
+    }
+  }, [initialSearchTerm]);
 
   // workingData stores the ACTUAL VALUES for each student, not just the excel row
   const [workingData, setWorkingData] = useState<any[]>([]);

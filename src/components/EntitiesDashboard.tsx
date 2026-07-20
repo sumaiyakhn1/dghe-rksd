@@ -97,30 +97,31 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
     setSelectedFileIds([]);
     setEditingFileId(null);
     
-    // Fetch courses
+    // Fetch courses and files in parallel for maximum speed
     try {
-      const response = await getCourses(entity.entityId, entity.session);
-      let courses = [];
-      if (Array.isArray(response)) courses = response;
-      else if (response && Array.isArray(response.data)) courses = response.data;
-      else if (response && response.data && Array.isArray(response.data.data)) courses = response.data.data;
-      setErpCourses(courses);
-    } catch (err) {
-      console.error("Error fetching courses:", err);
-    }
+      const [coursesResponse, filesResponse] = await Promise.all([
+        getCourses(entity.entityId, entity.session).catch(e => { console.error("Error fetching courses", e); return null; }),
+        getEntityFiles(entity._id).catch(e => { console.error("Error fetching files", e); return []; })
+      ]);
 
-    try {
-      const files = await getEntityFiles(entity._id);
-      setEntityFiles(files);
-      const initialConfigs: any = {};
-      files.forEach((f: any) => {
-        if (f.courseId && f.category) {
-          initialConfigs[f._id] = { courseId: f.courseId, category: f.category };
-        }
-      });
-      setFileConfigs(initialConfigs);
-    } catch (err) {
-      console.error("Failed to load files", err);
+      if (coursesResponse) {
+        let courses = [];
+        if (Array.isArray(coursesResponse)) courses = coursesResponse;
+        else if (coursesResponse && Array.isArray(coursesResponse.data)) courses = coursesResponse.data;
+        else if (coursesResponse && coursesResponse.data && Array.isArray(coursesResponse.data.data)) courses = coursesResponse.data.data;
+        setErpCourses(courses);
+      }
+
+      if (filesResponse) {
+        setEntityFiles(filesResponse);
+        const initialConfigs: any = {};
+        filesResponse.forEach((f: any) => {
+          if (f.courseId && f.category) {
+            initialConfigs[f._id] = { courseId: f.courseId, category: f.category };
+          }
+        });
+        setFileConfigs(initialConfigs);
+      }
     } finally {
       setLoadingFiles(false);
     }

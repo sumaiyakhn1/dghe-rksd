@@ -254,7 +254,7 @@ app.get('/api/search', authenticate, async (req, res) => {
   try {
     if (!db) return res.status(500).json({ error: "Database not connected" });
     const { q } = req.query;
-    if (!q || String(q).trim().length < 2) return res.json([]);
+    if (!q || String(q).trim().length < 1) return res.json([]);
 
     const searchTerm = String(q).trim().toLowerCase();
     const collection = db.collection('entity_files');
@@ -269,6 +269,7 @@ app.get('/api/search', authenticate, async (req, res) => {
     for (const file of files) {
       if (!Array.isArray(file.excelData)) continue;
       for (const row of file.excelData) {
+        if (results.length >= 50) break; // Limit to top 50 matches for performance
         // Check every cell value in the row for a match
         const matched = Object.entries(row).some(([key, val]) => {
           if (key.startsWith('_')) return false; // skip internal fields
@@ -280,10 +281,12 @@ app.get('/api/search', authenticate, async (req, res) => {
             _fileName: file.fileName,
             _fileId: String(file._id),
             _mapping: file.mapping || {},
+            _courseId: file.courseId,
+            _category: file.category
           });
         }
       }
-      if (results.length >= 200) break; // cap results
+      if (results.length >= 50) break;
     }
 
     res.json(results);

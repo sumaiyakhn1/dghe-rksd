@@ -44,12 +44,32 @@ function App() {
   const [activeFileIds, setActiveFileIds] = useState<string[]>([]);
   const [pushedRegistrationNumbers, setPushedRegistrationNumbers] = useState<string[]>([]);
 
-  const [sidebarFiles, setSidebarFiles] = useState<any[]>([]);
-  const [loadingSidebarFiles, setLoadingSidebarFiles] = useState(false);
 
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [globalSearchResults, setGlobalSearchResults] = useState<any[] | null>(null);
   const [isGlobalSearching, setIsGlobalSearching] = useState(false);
+  const [previewSearchTerm, setPreviewSearchTerm] = useState<string>('');
+
+  useEffect(() => {
+    if (!globalSearchQuery || globalSearchQuery.trim().length < 1) {
+      setGlobalSearchResults(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsGlobalSearching(true);
+      try {
+        const results = await searchStudents(globalSearchQuery);
+        setGlobalSearchResults(results);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsGlobalSearching(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [globalSearchQuery]);
 
   // eslint-disable-next-line
   useEffect(() => {
@@ -88,22 +108,8 @@ function App() {
         }
       };
       fetchCourses();
-      
-      const fetchSidebarFiles = async () => {
-        try {
-          setLoadingSidebarFiles(true);
-          const files = await getEntityFiles(selectedEntity._id);
-          setSidebarFiles(files);
-        } catch (error) {
-          console.error("Error fetching files for sidebar:", error);
-        } finally {
-          setLoadingSidebarFiles(false);
-        }
-      };
-      fetchSidebarFiles();
     } else {
       setErpCourses([]);
-      setSidebarFiles([]);
     }
   }, [isAuthenticated, selectedEntity]);
 
@@ -251,9 +257,6 @@ function App() {
         // Reset file name and mappings so we return clean
         setFileName(null);
         setMappings({});
-        // Refresh sidebar files
-        const files = await getEntityFiles(selectedEntity._id);
-        setSidebarFiles(files);
       }
     } catch (err) {
       console.error('Failed to save user data:', err);
@@ -289,55 +292,6 @@ function App() {
   return (
     <div className="app-shell">
       <div className="dashboard-container">
-
-        {/* Sidebar Indicator */}
-        <aside className="sidebar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 16px 40px' }}>
-            <div style={{ width: '32px', height: '32px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Sparkles size={18} color="white" />
-            </div>
-            <span style={{ fontWeight: 900, letterSpacing: '1px', fontSize: '15px' }}>DGHE BRIDGE</span>
-          </div>
-
-          {selectedEntity && (
-            <div style={{ marginTop: '20px', padding: '16px 0', borderTop: '1px solid var(--border)' }}>
-              <div style={{ padding: '0 16px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Uploaded Excels</span>
-              </div>
-              {loadingSidebarFiles ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
-                  <Loader2 size={16} className="animate-spin" color="var(--accent)" />
-                </div>
-              ) : sidebarFiles.length === 0 ? (
-                <div style={{ padding: '0 16px', fontSize: '12px', color: 'var(--text-muted)' }}>No files uploaded yet.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {sidebarFiles.map(file => (
-                    <div 
-                      key={file._id}
-                      style={{
-                        padding: '10px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: 'var(--text-primary)',
-                        background: 'transparent',
-                        borderRadius: '8px',
-                        margin: '0 8px',
-                      }}
-                    >
-                      <FileSpreadsheet size={16} color="var(--accent)" />
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.fileName}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-        </aside>
 
         {/* Dynamic Space Area */}
         <main className="main-content" style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
@@ -402,7 +356,21 @@ function App() {
                           const sReg = regKey ? res[regKey] : '-';
                           
                           return (
-                            <div key={i} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                            <div 
+                              key={i} 
+                              onClick={() => {
+                                if (!selectedEntity) return;
+                                const courseInfoMatch = erpCourses.find(c => String(c._id) === String(res._courseId)) || null;
+                                const term = sReg !== '-' ? sReg : sName;
+                                setPreviewSearchTerm(String(term));
+                                setGlobalSearchResults(null);
+                                setGlobalSearchQuery('');
+                                handleLoadSavedFiles(selectedEntity, [res._fileId], { [res._fileId]: { courseInfo: courseInfoMatch, globalCategory: res._category || '' } });
+                              }}
+                              style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: '12px', cursor: 'pointer', transition: 'background 0.2s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-input)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
                               <div style={{ fontWeight: 700, marginBottom: '4px' }}>{sName} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>({sReg})</span></div>
                               <div style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '10px' }}>{res._fileName}</div>
                             </div>
@@ -564,6 +532,7 @@ function App() {
                       onStudentPushed={(regNo) => setPushedRegistrationNumbers(prev => [...prev, regNo])}
                       entityId={selectedEntity?.entityId}
                       session={selectedEntity?.session}
+                      initialSearchTerm={previewSearchTerm}
                     />
                   </div>
                 )}
