@@ -13,9 +13,8 @@ import {
   ArrowLeft,
   ArrowRight,
   User,
-  ShieldCheck,
+  FileSpreadsheet,
   Loader2,
-  LayoutGrid,
   Search,
   X
 } from 'lucide-react';
@@ -265,23 +264,6 @@ function App() {
   };
 
 
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleStepClick = (stepId: Step, _idx: number) => {
-    if (!isAuthenticated && stepId !== 'auth') return;
-    if (stepId === 'auth') return; // Cannot go back to auth if logged in
-
-    // Allow navigating to any previous step, or next step if prerequisites are met
-    if (stepId === 'entities') {
-      setActiveStep('entities');
-    } else if (stepId === 'upload' && selectedEntity) {
-      setActiveStep('upload');
-    } else if (stepId === 'map' && selectedEntity && excelData.length > 0) {
-      setActiveStep('map');
-    } else if (stepId === 'preview' && selectedEntity && excelData.length > 0 && isMappingValid()) {
-      setActiveStep('preview');
-    }
-  };
 
   return (
     <div className="app-shell">

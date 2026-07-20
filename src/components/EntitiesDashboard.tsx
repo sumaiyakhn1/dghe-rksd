@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, LayoutGrid, Loader2, ArrowRight, FileSpreadsheet, ArrowLeft, Calendar, Trash2, Search, X } from 'lucide-react';
-import { getEntities, createEntity, getEntityFiles, deleteEntity, deleteUserFile, getCourses, saveFileConfig, searchStudents } from '../utils/auth';
+import { Plus, Loader2, ArrowRight, FileSpreadsheet, ArrowLeft, Calendar, Trash2, Search, X } from 'lucide-react';
+import { getEntities, createEntity, getEntityFiles, deleteUserFile, getCourses, saveFileConfig, searchStudents } from '../utils/auth';
 import type { Entity } from '../utils/auth';
 import { RKSD_ENTITY_ID, RKSD_SESSION, RKSD_NAME } from '../constants/rksd';
 import { MappingSetup } from './MappingSetup';
@@ -14,11 +14,6 @@ interface EntitiesDashboardProps {
 export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNewFile, onLoadSavedFiles, initialActiveEntity }) => {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
-
-  const [name, setName] = useState('RKSD');
-  const [error, setError] = useState<string | null>(null);
 
   const [activeEntity, setActiveEntity] = useState<Entity | null>(initialActiveEntity || null);
   const [entityFiles, setEntityFiles] = useState<any[]>([]);
@@ -64,31 +59,12 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
       }
     } catch (err: any) {
       console.error(err);
-      setError('Failed to load workspace');
+      alert('Failed to load workspace');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name) {
-      setError('Please enter a name');
-      return;
-    }
-    setCreating(true);
-    setError(null);
-    try {
-      const newEntity = await createEntity(name, RKSD_ENTITY_ID, RKSD_SESSION);
-      setEntities([newEntity, ...entities]);
-      setShowAddForm(false);
-      setName('RKSD');
-    } catch (err: any) {
-      setError(err?.response?.data?.error || 'Failed to create entity');
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const handleSelectEntity = async (entity: Entity) => {
     setActiveEntity(entity);
@@ -127,20 +103,6 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
     }
   };
 
-  const handleDeleteEntity = async (e: React.MouseEvent, entityId: string) => {
-    e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this workspace and all its saved files?')) return;
-
-    try {
-      await deleteEntity(entityId);
-      setEntities(entities.filter(ent => ent._id !== entityId));
-      if (activeEntity?._id === entityId) {
-        setActiveEntity(null);
-      }
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'Failed to delete entity');
-    }
-  };
 
   const handleDeleteFile = async (e: React.MouseEvent, fileId: string) => {
     e.stopPropagation();
