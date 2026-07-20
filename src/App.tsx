@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 import { FileUpload } from './components/FileUpload';
 import { DataPreview } from './components/DataPreview';
-import { getAuthToken, logout as authLogout, getCourses, saveUserFile, saveFileConfig, getEntityFiles, searchStudents } from './utils/auth';
+import { getAuthToken, logout as authLogout, getCourses, saveUserFile, saveFileConfig, searchStudents } from './utils/auth';
 import type { Entity } from './utils/auth';
 import { ERP_FIELDS } from './constants/erpFields';
 import { autoMapFields } from './utils/excelUtils';
@@ -12,10 +12,7 @@ import { EntitiesDashboard } from './components/EntitiesDashboard';
 import {
   ArrowLeft,
   ArrowRight,
-  Sparkles,
   User,
-  FileSpreadsheet,
-  CheckCircle2,
   ShieldCheck,
   Loader2,
   LayoutGrid,
@@ -267,10 +264,7 @@ function App() {
     }
   };
 
-  const steps = [
-    { id: 'auth', label: 'Identity', icon: ShieldCheck },
-    { id: 'entities', label: 'Select Entity', icon: LayoutGrid },
-  ];
+
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleStepClick = (stepId: Step, _idx: number) => {
