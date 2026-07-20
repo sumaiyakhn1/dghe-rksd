@@ -20,7 +20,7 @@ export const ERP_FIELDS: ERPField[] = [
   { key: 'gender', label: 'Gender', required: true, autoMapKeywords: ['gender', 'sex'] },
   { key: 'phone', label: 'Phone Number', required: true, autoMapKeywords: ['phone', 'mobile', 'contact'] },
   { key: 'doa', label: 'Date of Admission', required: false, autoMapKeywords: ['doa', 'admission'] },
-  { key: 'subjectCombination', label: 'Subject Combination', required: false, autoMapKeywords: ['subjectcombination'] },
+
   { key: 'state', label: 'State', required: false, autoMapKeywords: ['state'] },
   { key: 'nationality', label: 'Nationality', required: false, autoMapKeywords: ['nationality'] },
   { key: 'country', label: 'Country', required: false, autoMapKeywords: ['country'] },

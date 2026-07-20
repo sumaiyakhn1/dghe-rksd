@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 import { FileUpload } from './components/FileUpload';
 import { DataPreview } from './components/DataPreview';
-import { getAuthToken, logout as authLogout, getCourses, saveUserFile, saveFileConfig } from './utils/auth';
+import { getAuthToken, logout as authLogout, getCourses, saveUserFile, saveFileConfig, getEntityFiles, searchStudents } from './utils/auth';
 import type { Entity } from './utils/auth';
 import { ERP_FIELDS } from './constants/erpFields';
 import { autoMapFields } from './utils/excelUtils';
@@ -18,7 +18,9 @@ import {
   CheckCircle2,
   ShieldCheck,
   Loader2,
-  LayoutGrid
+  LayoutGrid,
+  Search,
+  X
 } from 'lucide-react';
 
 type Step = 'auth' | 'entities' | 'upload' | 'map' | 'preview';
@@ -41,6 +43,13 @@ function App() {
 
   const [activeFileIds, setActiveFileIds] = useState<string[]>([]);
   const [pushedRegistrationNumbers, setPushedRegistrationNumbers] = useState<string[]>([]);
+
+  const [sidebarFiles, setSidebarFiles] = useState<any[]>([]);
+  const [loadingSidebarFiles, setLoadingSidebarFiles] = useState(false);
+
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[] | null>(null);
+  const [isGlobalSearching, setIsGlobalSearching] = useState(false);
 
   // eslint-disable-next-line
   useEffect(() => {
@@ -79,8 +88,22 @@ function App() {
         }
       };
       fetchCourses();
+      
+      const fetchSidebarFiles = async () => {
+        try {
+          setLoadingSidebarFiles(true);
+          const files = await getEntityFiles(selectedEntity._id);
+          setSidebarFiles(files);
+        } catch (error) {
+          console.error("Error fetching files for sidebar:", error);
+        } finally {
+          setLoadingSidebarFiles(false);
+        }
+      };
+      fetchSidebarFiles();
     } else {
       setErpCourses([]);
+      setSidebarFiles([]);
     }
   }, [isAuthenticated, selectedEntity]);
 
@@ -228,6 +251,9 @@ function App() {
         // Reset file name and mappings so we return clean
         setFileName(null);
         setMappings({});
+        // Refresh sidebar files
+        const files = await getEntityFiles(selectedEntity._id);
+        setSidebarFiles(files);
       }
     } catch (err) {
       console.error('Failed to save user data:', err);
@@ -273,38 +299,122 @@ function App() {
             <span style={{ fontWeight: 900, letterSpacing: '1px', fontSize: '15px' }}>DGHE BRIDGE</span>
           </div>
 
-          {steps.map((s, idx) => {
-            const Icon = s.icon;
-            const stepIdx = steps.findIndex(x => x.id === activeStep);
-            const isActive = activeStep === s.id;
-            const isCompleted = stepIdx > idx;
-
-            let isClickable = false;
-            if (isAuthenticated) {
-              if (s.id === 'entities') isClickable = true;
-              if (s.id === 'upload' && selectedEntity) isClickable = true;
-              if (s.id === 'map' && selectedEntity && excelData.length > 0) isClickable = true;
-              if (s.id === 'preview' && selectedEntity && excelData.length > 0 && isMappingValid()) isClickable = true;
-            }
-
-            return (
-              <div
-                key={s.id}
-                onClick={() => isClickable && handleStepClick(s.id as Step, idx)}
-                className={`step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                style={{ cursor: isClickable ? 'pointer' : 'default' }}
-              >
-                <div className="step-icon">
-                  {isCompleted ? <CheckCircle2 size={18} /> : <Icon size={18} />}
-                </div>
-                <div className="step-label">{s.label}</div>
+          {selectedEntity && (
+            <div style={{ marginTop: '20px', padding: '16px 0', borderTop: '1px solid var(--border)' }}>
+              <div style={{ padding: '0 16px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Uploaded Excels</span>
               </div>
-            );
-          })}
+              {loadingSidebarFiles ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+                  <Loader2 size={16} className="animate-spin" color="var(--accent)" />
+                </div>
+              ) : sidebarFiles.length === 0 ? (
+                <div style={{ padding: '0 16px', fontSize: '12px', color: 'var(--text-muted)' }}>No files uploaded yet.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {sidebarFiles.map(file => (
+                    <div 
+                      key={file._id}
+                      style={{
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        background: 'transparent',
+                        borderRadius: '8px',
+                        margin: '0 8px',
+                      }}
+                    >
+                      <FileSpreadsheet size={16} color="var(--accent)" />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.fileName}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
+        </aside>
+
+        {/* Dynamic Space Area */}
+        <main className="main-content" style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          
           {isAuthenticated && (
-            <div style={{ marginTop: 'auto', padding: '20px', borderTop: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ position: 'absolute', top: '16px', left: '32px', right: '32px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '20px', zIndex: 50 }}>
+              
+              {/* Global Search Navbar */}
+              <div style={{ position: 'relative', flex: 1, maxWidth: '400px', marginRight: 'auto' }}>
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!globalSearchQuery.trim()) {
+                      setGlobalSearchResults(null);
+                      return;
+                    }
+                    setIsGlobalSearching(true);
+                    try {
+                      const results = await searchStudents(globalSearchQuery);
+                      setGlobalSearchResults(results);
+                    } catch (err) {
+                      console.error(err);
+                      alert('Search failed');
+                    } finally {
+                      setIsGlobalSearching(false);
+                    }
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '0 12px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}
+                >
+                  <Search size={16} color="var(--text-muted)" />
+                  <input 
+                    type="text" 
+                    placeholder="Global student search..." 
+                    value={globalSearchQuery}
+                    onChange={e => {
+                      setGlobalSearchQuery(e.target.value);
+                      if (e.target.value === '') setGlobalSearchResults(null);
+                    }}
+                    style={{ background: 'transparent', border: 'none', padding: '12px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none', width: '100%' }}
+                  />
+                  {isGlobalSearching ? <Loader2 size={16} className="animate-spin" color="var(--accent)" /> : null}
+                </form>
+
+                {/* Search Results Dropdown Overlay */}
+                {globalSearchResults !== null && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', maxHeight: '400px', overflowY: 'auto', zIndex: 100 }}>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'var(--bg-card)' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>{globalSearchResults.length} Results</span>
+                      <button onClick={() => { setGlobalSearchResults(null); setGlobalSearchQuery(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
+                        <X size={16} color="var(--text-muted)" />
+                      </button>
+                    </div>
+                    {globalSearchResults.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>No matches found</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {globalSearchResults.map((res, i) => {
+                          const mapping = res._mapping || {};
+                          const nameKey = Object.keys(mapping).find(k => mapping[k] === 'name');
+                          const regKey = Object.keys(mapping).find(k => mapping[k] === 'regNo');
+                          const sName = nameKey ? res[nameKey] : Object.values(res).find(v => String(v).toLowerCase().includes(globalSearchQuery.toLowerCase()));
+                          const sReg = regKey ? res[regKey] : '-';
+                          
+                          return (
+                            <div key={i} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                              <div style={{ fontWeight: 700, marginBottom: '4px' }}>{sName} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>({sReg})</span></div>
+                              <div style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '10px' }}>{res._fileName}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <User size={14} color="var(--text-muted)" />
                 </div>
@@ -316,18 +426,16 @@ function App() {
               <button
                 onClick={handleLogout}
                 className="btn-secondary"
-                style={{ width: '100%', fontSize: '11px' }}
+                style={{ fontSize: '11px', padding: '8px 16px', background: 'var(--bg-card)' }}
               >
                 DISCONNECT
               </button>
             </div>
           )}
-        </aside>
 
-        {/* Dynamic Space Area */}
-        <main className="main-content">
-          <AnimatePresence mode="wait">
-            <motion.div
+          <div style={{ flex: 1, overflowY: 'auto', width: '100%', padding: isAuthenticated ? '70px 40px 40px 40px' : '40px' }}>
+            <AnimatePresence mode="wait">
+              <motion.div
               key={activeStep}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -335,7 +443,7 @@ function App() {
               transition={{ duration: 0.2 }}
               style={{ width: '100%', display: 'flex', justifyContent: 'center' }}
             >
-              <div style={{ width: '100%', maxWidth: '1000px' }}>
+              <div style={{ width: '100%' }}>
                 {activeStep === 'auth' && <LoginForm onSuccess={() => setIsAuthenticated(true)} />}
 
                 {activeStep === 'entities' && (
@@ -460,8 +568,9 @@ function App() {
                   </div>
                 )}
               </div>
-            </motion.div>
-          </AnimatePresence>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </main>
 
       </div>

@@ -38,9 +38,7 @@ export const parseExcelFile = (file: File): Promise<{ headers: string[], data: a
         const courseNameHeader = headers.find(h => h.toLowerCase().includes('course name') || h.toLowerCase() === 'coursename');
         
         if (courseNameHeader) {
-          if (!headers.includes('subjectCombination')) {
-            headers.push('subjectCombination');
-          }
+          // Future: Parse course stream/combination here if needed
         }
 
         const syntheticFields = [
@@ -59,15 +57,7 @@ export const parseExcelFile = (file: File): Promise<{ headers: string[], data: a
 
         jsonData.forEach((row: any) => {
           if (courseNameHeader) {
-            const courseName = row[courseNameHeader];
-            if (typeof courseName === 'string') {
-              const matches = [...courseName.matchAll(/\(([^()]+)\)/g)];
-              if (matches.length > 0) {
-                row['subjectCombination'] = matches[matches.length - 1][1].trim();
-              } else {
-                row['subjectCombination'] = '';
-              }
-            }
+            // Future use: course name extraction
           }
           syntheticFields.forEach(field => {
             row[field.key] = field.value;

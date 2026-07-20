@@ -200,3 +200,13 @@ export const saveFileConfig = async (fileId: string, courseId: string, category:
   });
   return res.data;
 };
+
+export const searchStudents = async (query: string): Promise<any[]> => {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await axios.get('/api/search', {
+    params: { q: query },
+    headers: { 'Authorization': token }
+  });
+  return res.data;
+};

@@ -249,6 +249,49 @@ app.put('/api/files/:fileId/config', authenticate, async (req, res) => {
   }
 });
 
+// Global Search — search across ALL uploaded Excel files
+app.get('/api/search', authenticate, async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ error: "Database not connected" });
+    const { q } = req.query;
+    if (!q || String(q).trim().length < 2) return res.json([]);
+
+    const searchTerm = String(q).trim().toLowerCase();
+    const collection = db.collection('entity_files');
+
+    // Fetch all files with their excelData and mapping
+    const files = await collection.find(
+      {},
+      { projection: { fileName: 1, mapping: 1, excelData: 1, courseId: 1, category: 1 } }
+    ).toArray();
+
+    const results = [];
+    for (const file of files) {
+      if (!Array.isArray(file.excelData)) continue;
+      for (const row of file.excelData) {
+        // Check every cell value in the row for a match
+        const matched = Object.entries(row).some(([key, val]) => {
+          if (key.startsWith('_')) return false; // skip internal fields
+          return String(val ?? '').toLowerCase().includes(searchTerm);
+        });
+        if (matched) {
+          results.push({
+            ...row,
+            _fileName: file.fileName,
+            _fileId: String(file._id),
+            _mapping: file.mapping || {},
+          });
+        }
+      }
+      if (results.length >= 200) break; // cap results
+    }
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Start Server
 app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);

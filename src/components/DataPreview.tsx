@@ -302,7 +302,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
       row['userMobile'] = '';
       row['userName'] = '';
 
-      const fieldsToKeep = ['course', 'stream', 'batch', 'section', 'oldNew', 'category', 'name', 'dob', 'gender', 'phone', 'fatherName', 'motherName', 'subjectCombination', 'state', 'nationality', 'country', 'socialCategory', 'religion'].filter(f => !hiddenColumns.includes(f));
+      const fieldsToKeep = ['course', 'stream', 'batch', 'section', 'oldNew', 'category', 'name', 'dob', 'gender', 'phone', 'fatherName', 'motherName', 'state', 'nationality', 'country', 'socialCategory', 'religion'].filter(f => !hiddenColumns.includes(f));
       fieldsToKeep.forEach(key => {
         row[key] = student[key] || '';
       });

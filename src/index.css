@@ -132,8 +132,7 @@ body {
   display: flex;
   flex-direction: column;
   background-color: #fafafa;
-  overflow-y: auto;
-  padding: 60px;
+  overflow: hidden;
   align-items: center;
 }
 

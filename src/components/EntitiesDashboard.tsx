@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, LayoutGrid, Loader2, ArrowRight, FileSpreadsheet, ArrowLeft, Calendar, Trash2 } from 'lucide-react';
-import { getEntities, createEntity, getEntityFiles, deleteEntity, deleteUserFile, getCourses, saveFileConfig } from '../utils/auth';
+import { Plus, LayoutGrid, Loader2, ArrowRight, FileSpreadsheet, ArrowLeft, Calendar, Trash2, Search, X } from 'lucide-react';
+import { getEntities, createEntity, getEntityFiles, deleteEntity, deleteUserFile, getCourses, saveFileConfig, searchStudents } from '../utils/auth';
 import type { Entity } from '../utils/auth';
+import { RKSD_ENTITY_ID, RKSD_SESSION, RKSD_NAME } from '../constants/rksd';
 import { MappingSetup } from './MappingSetup';
 interface EntitiesDashboardProps {
   onUploadNewFile: (entity: Entity) => void;
@@ -16,9 +17,7 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
   const [creating, setCreating] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const [name, setName] = useState('');
-  const [entityId, setEntityId] = useState('');
-  const [session, setSession] = useState('');
+  const [name, setName] = useState('RKSD');
   const [error, setError] = useState<string | null>(null);
 
   const [activeEntity, setActiveEntity] = useState<Entity | null>(initialActiveEntity || null);
@@ -35,6 +34,11 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
   const [tempCategory, setTempCategory] = useState<string>('');
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
   useEffect(() => {
     fetchEntities();
     if (initialActiveEntity) {
@@ -45,11 +49,22 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
   const fetchEntities = async () => {
     try {
       setLoading(true);
-      const data = await getEntities();
+      let data = await getEntities();
+
+      // If DB is empty (new cluster), auto-create the RKSD entity
+      if (data.length === 0 && !initialActiveEntity) {
+        const newEntity = await createEntity(RKSD_NAME, RKSD_ENTITY_ID, RKSD_SESSION);
+        data = [newEntity];
+      }
+
       setEntities(data);
+      // Auto-select the first entity (RKSD) — skip the grid
+      if (data.length > 0 && !initialActiveEntity) {
+        handleSelectEntity(data[0]);
+      }
     } catch (err: any) {
       console.error(err);
-      setError('Failed to load entities');
+      setError('Failed to load workspace');
     } finally {
       setLoading(false);
     }
@@ -57,20 +72,17 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !entityId || !session) {
-      setError('Please fill in all fields');
+    if (!name) {
+      setError('Please enter a name');
       return;
     }
-
     setCreating(true);
     setError(null);
     try {
-      const newEntity = await createEntity(name, entityId, session);
+      const newEntity = await createEntity(name, RKSD_ENTITY_ID, RKSD_SESSION);
       setEntities([newEntity, ...entities]);
       setShowAddForm(false);
-      setName('');
-      setEntityId('');
-      setSession('');
+      setName('RKSD');
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Failed to create entity');
     } finally {
@@ -155,9 +167,27 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
       );
     }
 
+    const handleSearch = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!searchQuery.trim()) {
+        setSearchResults(null);
+        return;
+      }
+      setIsSearching(true);
+      try {
+        const results = await searchStudents(searchQuery);
+        setSearchResults(results);
+      } catch (err) {
+        console.error(err);
+        alert('Search failed');
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '32px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '32px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', flexWrap: 'wrap', gap: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <button onClick={() => setActiveEntity(null)} className="btn-secondary" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>
               <ArrowLeft size={20} />
@@ -167,7 +197,21 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
               <h2 style={{ fontSize: '24px', fontWeight: 900, margin: '0', letterSpacing: '-0.5px' }}>{activeEntity.name}</h2>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <form onSubmit={handleSearch} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-input)', borderRadius: '12px', padding: '0 12px', border: '1px solid var(--border)' }}>
+              <Search size={16} color="var(--text-muted)" />
+              <input 
+                type="text" 
+                placeholder="Search global..." 
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  if (e.target.value === '') setSearchResults(null);
+                }}
+                style={{ background: 'transparent', border: 'none', padding: '12px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none', width: '150px' }}
+              />
+              {isSearching ? <Loader2 size={16} className="animate-spin" color="var(--accent)" /> : null}
+            </form>
             <button
               onClick={() => setShowMapping(true)}
               className="btn-secondary"
@@ -203,7 +247,56 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
           </div>
         </div>
 
-        {loadingFiles ? (
+        {searchResults !== null ? (
+          <div className="card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Search Results ({searchResults.length})</h3>
+              <button onClick={() => { setSearchResults(null); setSearchQuery(''); }} className="btn-secondary" style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                <X size={14} /> Clear Search
+              </button>
+            </div>
+            {searchResults.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No matches found for "{searchQuery}"</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-main)', borderBottom: '2px solid var(--border)' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)' }}>File Source</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)' }}>Name</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)' }}>Reg / Roll No</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)' }}>Other Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {searchResults.map((res, i) => {
+                      const mapping = res._mapping || {};
+                      const nameKey = Object.keys(mapping).find(k => mapping[k] === 'name');
+                      const regKey = Object.keys(mapping).find(k => mapping[k] === 'regNo');
+                      const sName = nameKey ? res[nameKey] : Object.values(res).find(v => String(v).toLowerCase().includes(searchQuery.toLowerCase()));
+                      const sReg = regKey ? res[regKey] : '-';
+                      
+                      return (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '12px', color: 'var(--accent)', fontWeight: 600 }}>{res._fileName}</td>
+                          <td style={{ padding: '12px', fontWeight: 600 }}>{sName}</td>
+                          <td style={{ padding: '12px' }}>{sReg}</td>
+                          <td style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '11px' }}>
+                            {Object.entries(res)
+                              .filter(([k]) => !k.startsWith('_') && k !== nameKey && k !== regKey)
+                              .slice(0, 3)
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(' | ')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : loadingFiles ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
             <Loader2 className="animate-spin" color="var(--accent)" size={32} />
           </div>
@@ -359,130 +452,23 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
     );
   }
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '32px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ width: '56px', height: '56px', background: 'var(--accent)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <LayoutGrid color="white" size={28} />
-          </div>
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 900, margin: '0 0 4px 0', letterSpacing: '-0.5px' }}>Workspaces</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0, fontWeight: 500 }}>Select or create an entity workspace.</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
-        >
-          {showAddForm ? 'Cancel' : <><Plus size={18} /> New Entity</>}
-        </button>
+  // Always show the file dashboard (no workspace grid)
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+        <Loader2 className="animate-spin" color="var(--accent)" size={32} />
       </div>
+    );
+  }
 
-      {showAddForm && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="card"
-          style={{ maxWidth: '100%', padding: '32px' }}
-        >
-          <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '24px' }}>Create New Entity</h3>
-          <form onSubmit={handleCreate} style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Workspace Name</label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="e.g. 2024 Intake"
-                value={name}
-                onChange={e => setName(e.target.value)}
-              />
-            </div>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Entity ID</label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="API Entity ID"
-                value={entityId}
-                onChange={e => setEntityId(e.target.value)}
-              />
-            </div>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Session</label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="e.g. 2024"
-                value={session}
-                onChange={e => setSession(e.target.value)}
-              />
-            </div>
-            <button type="submit" disabled={creating} className="btn-primary" style={{ padding: '16px 32px' }}>
-              {creating ? <Loader2 size={18} className="animate-spin" /> : 'Create'}
-            </button>
-          </form>
-          {error && <p style={{ color: '#ef4444', marginTop: '16px', fontSize: '13px', fontWeight: 600 }}>{error}</p>}
-        </motion.div>
-      )}
+  // Fallback: if still no entity loaded yet, show minimal spinner
+  if (!activeEntity) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+        <Loader2 className="animate-spin" color="var(--accent)" size={32} />
+      </div>
+    );
+  }
 
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
-          <Loader2 className="animate-spin" color="var(--accent)" size={32} />
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-          {entities.map(entity => (
-            <motion.div
-              key={entity._id}
-              whileHover={{ translateY: -4, boxShadow: '0 12px 30px -10px rgba(0,0,0,0.1)' }}
-              onClick={() => handleSelectEntity(entity)}
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: '20px',
-                padding: '24px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                minHeight: '160px',
-                transition: 'all 0.2s'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <h3 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 12px 0' }}>{entity.name}</h3>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, background: 'var(--bg-input)', padding: '6px 12px', borderRadius: '8px', color: 'var(--text-secondary)' }}>ID: {entity.entityId}</span>
-                    <span style={{ fontSize: '11px', fontWeight: 700, background: 'var(--bg-input)', padding: '6px 12px', borderRadius: '8px', color: 'var(--text-secondary)' }}>Session: {entity.session}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => handleDeleteEntity(e, entity._id)}
-                  style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer' }}
-                  title="Delete Workspace"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--accent-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
-                  <ArrowRight size={16} />
-                </div>
-              </div>
-            </motion.div>
-          ))}
-          {entities.length === 0 && !showAddForm && (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-              <LayoutGrid size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
-              <h3 style={{ fontSize: '18px', fontWeight: 700 }}>No Workspaces Found</h3>
-              <p style={{ fontSize: '14px', marginTop: '8px' }}>Create an entity workspace to get started.</p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  return null;
 };
