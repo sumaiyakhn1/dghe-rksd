@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // The live Render backend URL. Used for both local dev and production.
-const RENDER_BACKEND_URL = 'https://dghe-erp.onrender.com';
+const RENDER_BACKEND_URL = 'https://dghe-rksd.onrender.com';
 axios.defaults.baseURL = RENDER_BACKEND_URL;
 
 const API_BASE_URL = 'https://admission-api.odpay.in';
