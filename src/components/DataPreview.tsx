@@ -25,12 +25,19 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
   const [statusMap, setStatusMap] = useState<Record<number, 'idle' | 'loading' | 'success' | 'error'>>({});
   const [errorMessages, setErrorMessages] = useState<Record<number, string>>({});
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   useEffect(() => {
     if (initialSearchTerm) {
       setSearchTerm(initialSearchTerm);
     }
   }, [initialSearchTerm]);
+
+  // Reset to page 1 whenever search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   // workingData stores the ACTUAL VALUES for each student, not just the excel row
   const [workingData, setWorkingData] = useState<any[]>([]);
@@ -162,7 +169,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
     setWorkingData(initialized);
   }, [data, mappings]);
 
-  const filteredIndices = workingData
+  const allFilteredIndices = workingData
     .map((student, originalIndex) => ({ student, originalIndex }))
     .filter(({ student }) => {
       if (!searchTerm) return true;
@@ -170,8 +177,14 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
       return Object.values(student).some(val =>
         String(val).toLowerCase().includes(term)
       );
-    })
-    .slice(0, 50);
+    });
+
+  const totalPages = Math.max(1, Math.ceil(allFilteredIndices.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const filteredIndices = allFilteredIndices.slice(
+    (safeCurrentPage - 1) * PAGE_SIZE,
+    safeCurrentPage * PAGE_SIZE
+  );
 
   const duplicateRegNos = React.useMemo(() => {
     const counts: Record<string, number> = {};
@@ -526,9 +539,50 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
         </table>
       </div>
 
-      {/* Buffer Status */}
-      <div style={{ padding: '16px 32px', background: 'var(--bg-main)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Pagination + Buffer Status */}
+      <div style={{ padding: '16px 32px', background: 'var(--bg-main)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <p style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', margin: 0, letterSpacing: '1px' }}>B_BATCH_050</p>
+
+        {/* Pagination Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
+            {allFilteredIndices.length === 0 ? '0 records' : `${(safeCurrentPage - 1) * PAGE_SIZE + 1}–${Math.min(safeCurrentPage * PAGE_SIZE, allFilteredIndices.length)} of ${allFilteredIndices.length}`}
+          </span>
+          <button
+            disabled={safeCurrentPage <= 1}
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            style={{
+              background: safeCurrentPage <= 1 ? 'transparent' : 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              color: safeCurrentPage <= 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+              cursor: safeCurrentPage <= 1 ? 'not-allowed' : 'pointer',
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              transition: 'all 0.2s'
+            }}
+          >← Prev</button>
+          <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--accent)', minWidth: '80px', textAlign: 'center' }}>
+            Page {safeCurrentPage} / {totalPages}
+          </span>
+          <button
+            disabled={safeCurrentPage >= totalPages}
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            style={{
+              background: safeCurrentPage >= totalPages ? 'transparent' : 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              color: safeCurrentPage >= totalPages ? 'var(--text-muted)' : 'var(--text-primary)',
+              cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              transition: 'all 0.2s'
+            }}
+          >Next →</button>
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)' }}></div>
           <span style={{ fontSize: '10px', fontWeight: 900, color: 'var(--accent)' }}>SYNC_READY</span>
