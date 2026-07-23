@@ -411,6 +411,14 @@ export const EntitiesDashboard: React.FC<EntitiesDashboardProps> = ({ onUploadNe
             )}
           </div>
         )}
+
+        {/* Total Pushed Students Badge */}
+        <div style={{ position: 'fixed', bottom: '24px', right: '32px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', zIndex: 100, display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>Total Pushed:</span>
+          <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+            {entityFiles.reduce((acc, file) => acc + (file.pushedRegistrationNumbers?.length || 0), 0)}
+          </span>
+        </div>
       </div>
     );
   }

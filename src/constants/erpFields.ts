@@ -13,6 +13,7 @@ export const ERP_FIELDS: ERPField[] = [
   { key: 'regNo', label: 'Registration No', required: true, autoMapKeywords: ['reg', 'enrollment', 'roll', 'registration_id'] },
   { key: 'course', label: 'Course', required: false, autoMapKeywords: ['course', 'degree'] },
   { key: 'stream', label: 'Stream', required: false, autoMapKeywords: ['stream', 'branch'] },
+  { key: 'branchId', label: 'Branch/Shift', required: false, autoMapKeywords: ['shift', 'timing'] },
   { key: 'batch', label: 'Batch/Semester', required: false, autoMapKeywords: ['batch', 'year', 'semester'] },
   { key: 'section', label: 'Section', required: false, autoMapKeywords: ['section'] },
   { key: 'oldNew', label: 'oldNew (AIOC/BC)', required: true, autoMapKeywords: ['old', 'new', 'allocation', 'category', 'reservation'] },

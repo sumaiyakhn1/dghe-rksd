@@ -42,6 +42,24 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
   // workingData stores the ACTUAL VALUES for each student, not just the excel row
   const [workingData, setWorkingData] = useState<any[]>([]);
 
+  // Hot-patch existing data for the user's current session so they don't have to reload
+  useEffect(() => {
+    setWorkingData(prev => {
+      let needsUpdate = false;
+      const patched = prev.map(student => {
+        if (!student.branchId) {
+          needsUpdate = true;
+          return {
+            ...student,
+            branchId: (student.course && String(student.course).toUpperCase().includes('(EVE)')) ? 'Evening' : 'Morning'
+          };
+        }
+        return student;
+      });
+      return needsUpdate ? patched : prev;
+    });
+  }, []);
+
   // Initialize workingData with mapped values and user business rules
   useEffect(() => {
     const regNoCounts: Record<string, number> = {};
@@ -144,6 +162,12 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
       } else {
         if (!student.course) student.course = 'Bachelor of Arts';
         student.stream = student.course;
+      }
+
+      if (student.course && String(student.course).toUpperCase().includes('(EVE)')) {
+        student.branchId = 'Evening';
+      } else if (!student.branchId) {
+        student.branchId = 'Morning';
       }
 
       // E. Registration Number Duplicacy Handling
@@ -520,7 +544,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data, mappings, valueM
                               ) : (
                                 <PlayCircle size={12} />
                               )}
-                              {status === 'error' ? 'RETRY' : 'ADD_REC'}
+                              {status === 'error' ? 'RETRY' : 'Add to ERP'}
                             </button>
                             {status === 'error' && (
                               <span style={{ fontSize: '8px', color: '#ef4444', fontWeight: 800, maxWidth: '100px', overflow: 'hidden' }}>

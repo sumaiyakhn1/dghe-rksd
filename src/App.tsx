@@ -273,10 +273,10 @@ function App() {
         <main className="main-content" style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
           
           {isAuthenticated && (
-            <div style={{ position: 'absolute', top: '16px', left: '32px', right: '32px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '20px', zIndex: 50 }}>
+            <header style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', padding: '20px 40px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', zIndex: 50 }}>
               
               {/* Global Search Navbar */}
-              <div style={{ position: 'relative', flex: 1, maxWidth: '400px', marginRight: 'auto' }}>
+              <div style={{ position: 'relative', flex: 1, maxWidth: '500px' }}>
                 <form 
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -295,9 +295,9 @@ function App() {
                       setIsGlobalSearching(false);
                     }
                   }}
-                  style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '0 12px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}
+                  style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-input)', borderRadius: '12px', padding: '2px 16px', border: '1px solid var(--border)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}
                 >
-                  <Search size={16} color="var(--text-muted)" />
+                  <Search size={18} color="var(--accent)" />
                   <input 
                     type="text" 
                     placeholder="Global student search..." 
@@ -306,9 +306,9 @@ function App() {
                       setGlobalSearchQuery(e.target.value);
                       if (e.target.value === '') setGlobalSearchResults(null);
                     }}
-                    style={{ background: 'transparent', border: 'none', padding: '12px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none', width: '100%' }}
+                    style={{ background: 'transparent', border: 'none', padding: '14px 12px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', outline: 'none', width: '100%' }}
                   />
-                  {isGlobalSearching ? <Loader2 size={16} className="animate-spin" color="var(--accent)" /> : null}
+                  {isGlobalSearching ? <Loader2 size={18} className="animate-spin" color="var(--accent)" /> : null}
                 </form>
 
                 {/* Search Results Dropdown Overlay */}
@@ -374,10 +374,10 @@ function App() {
               >
                 DISCONNECT
               </button>
-            </div>
+            </header>
           )}
 
-          <div style={{ flex: 1, overflowY: 'auto', width: '100%', padding: isAuthenticated ? '70px 40px 40px 40px' : '40px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', width: '100%', padding: '40px' }}>
             <AnimatePresence mode="wait">
               <motion.div
               key={activeStep}
